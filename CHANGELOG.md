@@ -1,3 +1,14 @@
+0.14.2 Release notes (2016-7-11)
+=============================================================
+### Breaking changes
+* ReactNative versions older than v0.14.0 are no longer supported
+
+### Enhancements
+* Support for ReactNative versions v0.28.0+
+
+### Bugfixes
+* None
+
 0.14.1 Release notes (2016-6-28)
 =============================================================
 ### Breaking changes
