@@ -48,29 +48,44 @@ using namespace realm::rpc;
 @end
 
 extern "C" JSGlobalContextRef RealmReactGetJSGlobalContextForExecutor(id executor, bool create) {
-    Ivar contextIvar = class_getInstanceVariable([executor class], "_context");
-    if (!contextIvar) {
-        return NULL;
+    id rctJSContext = nil;
+
+    SEL contextSelector = @selector(context);
+    if ([executor respondsToSelector:contextSelector]) {
+        // for RN 0.18.0rc+
+        rctJSContext = [executor performSelector:contextSelector];
     }
 
-    id rctJSContext = object_getIvar(executor, contextIvar);
+    if (!rctJSContext) {
+        Ivar contextIvar = class_getInstanceVariable([executor class], "_context");
+        if (contextIvar) {
+            rctJSContext = object_getIvar(executor, contextIvar);
+        }
+    }
+
     if (!rctJSContext && create) {
         Class RCTJavaScriptContext = NSClassFromString(@"RCTJavaScriptContext");
+        JSContext *jsContext = [[JSContext alloc] init];
 
         NSMethodSignature *signature = [RCTJavaScriptContext instanceMethodSignatureForSelector:@selector(initWithJSContext:onThread:)];
         if (signature) {
             // for RN 0.28.0+
-            rctJSContext = [executor context];
+            Ivar javaScriptThreadIvar = class_getInstanceVariable([executor class], "_javaScriptThread");
+            assert(javaScriptThreadIvar);
+
+            id javaScriptThread = object_getIvar(executor, javaScriptThreadIvar);
+            rctJSContext = [[RCTJavaScriptContext alloc] initWithJSContext:jsContext
+                                                                  onThread:javaScriptThread];
         }
         else {
             // for RN < 0.28.0
             NSMethodSignature *oldSignature = [RCTJavaScriptContext instanceMethodSignatureForSelector:@selector(initWithJSContext:)];
             assert(oldSignature);
 
-            rctJSContext = [[RCTJavaScriptContext alloc] initWithJSContext:[[JSContext alloc] init]];
-            object_setIvar(executor, contextIvar, rctJSContext);
+            rctJSContext = [[RCTJavaScriptContext alloc] initWithJSContext:jsContext];
         }
 
+        object_setIvar(executor, contextIvar, rctJSContext);
     }
 
     return [rctJSContext ctx];
